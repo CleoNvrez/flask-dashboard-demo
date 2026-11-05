@@ -1,0 +1,309 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .metric-module { border-radius: 20px; padding: 28px; position: relative; overflow: hidden; }
+    .metric-module::before {
+        content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+        background: linear-gradient(90deg, transparent, var(--accent-primary), transparent); opacity: 0.7;
+    }
+    .metric-title-tag { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-muted); font-weight: 700; margin-bottom: 12px; }
+    .metric-data-value { font-family: var(--font-mono); font-size: 2.8rem; font-weight: 700; letter-spacing: -2px; color: #fff; line-height: 1; }
+    
+    .chart-container { background: rgba(2, 6, 23, 0.6); border: 1px solid var(--glass-border); border-radius: 20px; padding: 24px; }
+    
+    .table-enterprise-grid { width: 100%; border-collapse: separate; border-spacing: 0; }
+    .table-enterprise-grid th {
+        padding: 18px 24px; font-weight: 700; font-size: 11px; color: var(--text-muted);
+        border-bottom: 1px solid var(--glass-border); text-transform: uppercase; letter-spacing: 1.5px; background: rgba(2, 6, 23, 0.5);
+    }
+    .table-enterprise-grid td {
+        padding: 18px 24px; font-size: 13.5px; border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        vertical-align: middle; color: #f1f5f9; transition: var(--transition-smooth);
+    }
+    .table-enterprise-grid tr:hover td { background: rgba(56, 189, 248, 0.05); color: #fff; }
+    
+    .telemetry-status-badge {
+        padding: 6px 14px; border-radius: 100px; font-size: 11px; font-weight: 700;
+        font-family: var(--font-mono); display: inline-flex; align-items: center; gap: 8px; letter-spacing: 0.5px;
+    }
+    .badge-status-active { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .badge-status-pending { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .badge-status-archive { background: rgba(161, 161, 170, 0.15); color: #cbd5e1; border: 1px solid rgba(161, 161, 170, 0.4); }
+
+    .btn-action-primary {
+        background: #fff; color: #000; border: none; padding: 12px 26px; border-radius: 10px;
+        font-weight: 700; font-size: 13px; letter-spacing: 0.5px; transition: var(--transition-smooth);
+        box-shadow: 0 4px 24px rgba(255, 255, 255, 0.2);
+    }
+    .btn-action-primary:hover { background: #e2e8f0; transform: translateY(-2px); box-shadow: 0 8px 32px rgba(255, 255, 255, 0.3); }
+
+    .progress-bar-tech { width: 70px; height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; position: relative; }
+    .progress-fill-tech { height: 100%; background: linear-gradient(90deg, #0284c7, var(--accent-primary)); border-radius: 3px; width: 75%; }
+
+    @media (max-width: 768px) {
+        .desktop-table-view { display: none; }
+        .mobile-card-view { display: block; }
+    }
+    @media (min-width: 769px) {
+        .desktop-table-view { display: block; }
+        .mobile-card-view { display: none; }
+    }
+</style>
+
+<!-- Header & Ekspor CSV Killer Feature -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-5">
+    <div>
+        <h1 class="fw-extrabold mb-2 text-white" style="letter-spacing: -1.5px; font-size: 32px;">Orbital Telemetry Command & Inventory</h1>
+        <p class="mb-0 text-muted" style="font-size: 14.5px;">Real-time automated accumulation streams, margin analytics, and SQLite persistence.</p>
+    </div>
+    <div class="d-flex gap-3 flex-wrap">
+        <a href="{{ url_for('export_csv') }}" class="btn btn-outline-info px-4 py-2" style="font-size: 13px; font-weight: 600; border-radius: 10px;">
+            <i class="bi bi-file-earmark-spreadsheet me-2"></i> Ekspor CSV
+        </a>
+        <button onclick="triggerForceSync()" class="btn btn-outline-light px-4 py-2" style="border-color: var(--glass-border); font-size: 13px; font-weight: 600; border-radius: 10px; background: rgba(255,255,255,0.03);">
+            <i class="bi bi-arrow-repeat me-2"></i> Force Sync
+        </button>
+        <button class="btn-action-primary" data-bs-toggle="modal" data-bs-target="#deployModal"><i class="bi bi-plus-lg me-2"></i> Deploy New Stream</button>
+    </div>
+</div>
+
+<!-- Core Metrics Grid -->
+<div class="row mb-4 g-4">
+    <div class="col-md-4">
+        <div class="glass-container metric-module h-100">
+            <div class="metric-title-tag">Akumulasi Total Barang (Persistent)</div>
+            <div class="metric-data-value">{{ total_data }} <span style="font-size: 1rem; color: var(--accent-primary); font-weight: 600;">UNIT</span></div>
+            <div class="mt-3 text-muted" style="font-size: 12.5px;"><span class="text-success fw-bold"><i class="bi bi-shield-fill-check"></i> SQLite Active</span></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="glass-container metric-module h-100">
+            <div class="metric-title-tag">Node Operasional Aktif</div>
+            <div class="metric-data-value">{{ total_aktif }} <span style="font-size: 1rem; color: #34d399; font-weight: 600;">NODES</span></div>
+            <div class="mt-3 text-muted" style="font-size: 12.5px;"><span class="text-success fw-bold">100%</span> distribusi beban optimal</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="glass-container metric-module h-100">
+            <div class="metric-title-tag">Estimasi Margin Keuntungan</div>
+            <div class="metric-data-value" style="color: #34d399;">32.4%</div>
+            <div class="mt-3 text-muted" style="font-size: 12.5px;"><span class="text-success fw-bold"><i class="bi bi-shield-check"></i> Stable</span> kalkulasi margin real-time</div>
+        </div>
+    </div>
+</div>
+
+<!-- Grafik Analitik SVG -->
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="chart-container">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h5 class="m-0 fw-bold text-white" style="font-size: 15px;">Grafik Akumulasi Volume & Arus Barang</h5>
+                    <p class="m-0 text-muted" style="font-size: 12px;">Visualisasi analitik performa logistik sistem global</p>
+                </div>
+                <span class="badge bg-primary bg-opacity-25 text-primary border border-primary border-opacity-50 px-3 py-1" style="font-size: 11px;">Real-Time Feed</span>
+            </div>
+            <div style="width: 100%; height: 140px; position: relative;">
+                <svg viewBox="0 0 1000 200" preserveAspectRatio="none" style="width: 100%; height: 100%;">
+                    <defs>
+                        <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.5"/>
+                            <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M0,150 Q250,40 500,90 T1000,20 L1000,200 L0,200 Z" fill="url(#chartGradient)"></path>
+                    <path d="M0,150 Q250,40 500,90 T1000,20" fill="none" stroke="#38bdf8" stroke-width="3" vector-effect="non-scaling-stroke"></path>
+                </svg>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Telemetry Grid & Paginasi Backend -->
+<div class="glass-container" style="border-radius: 20px; overflow: hidden;">
+    <div class="d-flex justify-content-between align-items-center p-4 px-5 border-bottom" style="border-color: var(--glass-border) !important; background: rgba(2, 6, 23, 0.4);">
+        <div>
+            <h5 class="m-0 fw-bold text-white" style="font-size: 16px; letter-spacing: -0.5px;">Indeks Inventaris & Akumulasi Barang</h5>
+            <p class="m-0 text-muted" style="font-size: 12px;">Menampilkan data terpaginasi dari database SQL</p>
+        </div>
+        <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">PAGE: {{ pagination.page }} OF {{ pagination.pages }}</span>
+    </div>
+
+    <!-- Tampilan Desktop: Tabel -->
+    <div class="table-responsive desktop-table-view">
+        <table class="table-enterprise-grid" id="inventoryTable">
+            <thead>
+                <tr>
+                    <th style="padding-left: 28px;">INDEX ID</th>
+                    <th>IDENTIFIKASI BARANG</th>
+                    <th>SUBSYSTEM / KATEGORI</th>
+                    <th>VOLUME AKUMULASI</th>
+                    <th>MARGIN ESTIMASI</th>
+                    <th>STATUS TELEMETRY</th>
+                    <th style="text-align: right; padding-right: 28px;">AKSI & TIMESTAMP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if items %}
+                    {% for item in items %}
+                    <tr class="inventory-row">
+                        <td style="padding-left: 28px; font-family: var(--font-mono); color: var(--text-muted); font-weight: 600;">
+                            #IDX-{{ "%04d" % item.id }}
+                        </td>
+                        <td><span class="fw-bold text-white searchable-name" style="font-size: 14px;">{{ item.nama_data }}</span></td>
+                        <td>
+                            <span class="px-2.5 py-1 rounded-2" style="background: rgba(255,255,255,0.06); color: var(--text-muted); font-family: var(--font-mono); font-size: 11.5px; border: 1px solid var(--glass-border);">
+                                {{ item.kategori }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center gap-3">
+                                <span style="font-family: var(--font-mono); font-weight: 700; width: 35px;">{{ item.jumlah }}</span>
+                                <div class="progress-bar-tech"><div class="progress-fill-tech"></div></div>
+                            </div>
+                        </td>
+                        <td><span style="font-family: var(--font-mono); color: #34d399; font-weight: 600;">+{{ item.id * 8.5 }}%</span></td>
+                        <td>
+                            {% if item.status == 'Aktif' %}
+                                <span class="telemetry-status-badge badge-status-active"><span style="width: 6px; height: 6px; background: #34d399; border-radius: 50%;"></span> OPERATIONAL</span>
+                            {% elif item.status == 'Pending' %}
+                                <span class="telemetry-status-badge badge-status-pending"><span style="width: 6px; height: 6px; background: #fbbf24; border-radius: 50%;"></span> SYNCHRONIZING</span>
+                            {% else %}
+                                <span class="telemetry-status-badge badge-status-archive"><span style="width: 6px; height: 6px; background: #cbd5e1; border-radius: 50%;"></span> OFFLINE</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right; padding-right: 28px;">
+                            <div class="d-flex align-items-center justify-content-end gap-3">
+                                <span style="color: var(--text-muted); font-size: 11.5px; font-family: var(--font-mono);">{{ item.dibuat_pada }}</span>
+                                <form action="{{ url_for('delete_stream', item_id=item.id) }}" method="POST" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="Hapus Data"><i class="bi bi-trash3-fill"></i></button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5">
+                            <div class="text-muted mb-2"><i class="bi bi-inbox fs-1"></i></div>
+                            <h6 class="text-white fw-bold">Belum Ada Data Tersedia</h6>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Tampilan Mobile: Card Stack -->
+    <div class="mobile-card-view p-3">
+        {% if items %}
+            {% for item in items %}
+            <div class="glass-container p-3 mb-3 rounded-4 border border-secondary border-opacity-25">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span style="font-family: var(--font-mono); color: var(--accent-primary); font-size: 12px; font-weight: bold;">#IDX-{{ "%04d" % item.id }}</span>
+                    <span class="badge bg-success bg-opacity-25 text-success px-2 py-1" style="font-size: 10px;">{{ item.status }}</span>
+                </div>
+                <h6 class="fw-bold text-white mb-1">{{ item.nama_data }}</h6>
+                <div class="d-flex justify-content-between text-muted small mb-3">
+                    <span>Kategori: <strong>{{ item.kategori }}</strong></span>
+                    <span>Volume: <strong>{{ item.jumlah }}</strong></span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center border-top border-secondary border-opacity-25 pt-2">
+                    <span style="font-size: 11px; color: var(--text-muted);">{{ item.dibuat_pada }}</span>
+                    <form action="{{ url_for('delete_stream', item_id=item.id) }}" method="POST">
+                        <button type="submit" class="btn btn-sm btn-danger px-3 py-1" style="font-size: 11px;"><i class="bi bi-trash3 me-1"></i> Hapus</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center py-4 text-muted">Belum ada data terekam.</div>
+        {% endif %}
+    </div>
+
+    <!-- Navigasi Paginasi UI -->
+    {% if pagination.pages > 1 %}
+    <div class="p-4 border-top border-secondary border-opacity-25 d-flex justify-content-center">
+        <nav aria-label="Page navigation">
+            <ul class="pagination mb-0">
+                <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                    <a class="page-link bg-dark text-white border-secondary" href="{{ url_for('dashboard', page=pagination.prev_num) }}">Previous</a>
+                </li>
+                {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                    {% if page_num %}
+                        <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                            <a class="page-link bg-dark text-white border-secondary" href="{{ url_for('dashboard', page=page_num) }}">{{ page_num }}</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link bg-dark text-muted border-secondary">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                    <a class="page-link bg-dark text-white border-secondary" href="{{ url_for('dashboard', page=pagination.next_num) }}">Next</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Dialog Deploy (WTForms Integrated) -->
+<div class="modal fade" id="deployModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-container border border-secondary border-opacity-50 text-white rounded-4 shadow-lg">
+            <div class="modal-header border-bottom border-secondary border-opacity-25">
+                <h5 class="modal-title fw-bold fs-6"><i class="bi bi-cloud-arrow-up-fill me-2 text-info"></i> Deploy New Dataset Stream</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('deploy_stream') }}" method="POST">
+                {{ form.hidden_tag() }}
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small text-muted text-uppercase fw-bold">Nama Identifikasi Barang / Node</label>
+                        {{ form.nama_data(class="form-control bg-dark border-secondary text-white rounded-3", placeholder="Contoh: Quantum Telemetry Node Z") }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted text-uppercase fw-bold">Subsystem / Kategori</label>
+                        {{ form.kategori(class="form-select bg-dark border-secondary text-white rounded-3") }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted text-uppercase fw-bold">Volume Akumulasi Unit</label>
+                        {{ form.jumlah(class="form-control bg-dark border-secondary text-white rounded-3", value="15") }}
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-secondary border-opacity-25">
+                    <button type="button" class="btn btn-outline-light btn-sm px-3" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-info btn-sm px-4 fw-bold">Konfirmasi Deploy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('globalLiveSearch').addEventListener('input', function(e) {
+        const term = e.target.value.toLowerCase();
+        const rows = document.querySelectorAll('.inventory-row');
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(term) ? '' : 'none';
+        });
+    });
+
+    function triggerForceSync() {
+        const btn = event.currentTarget;
+        const originalHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Syncing Nodes...`;
+        
+        setTimeout(() => {
+            btn.innerHTML = `<i class="bi bi-check2 text-success me-2"></i> Synced!`;
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+            }, 1500);
+        }, 1200);
+    }
+</script>
+{% endblock %}
